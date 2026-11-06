@@ -155,6 +155,17 @@ class LocalClmTest(unittest.TestCase):
         self.assertEqual(self.popen.call_count, 1)
         self.assertEqual(self.popen.call_args.args[0][0], str(localclm.PY_EXE))
 
+    def test_corrupt_pid_file(self):
+        self.exe_ok()
+        localclm.RUN.mkdir(parents=True)
+        (localclm.RUN / "clm-serve.pid").write_text("")
+        (localclm.RUN / "llama-server.pid").write_text("222")
+        self.alive.side_effect = lambda pid, image, since: pid == 222
+        self.assertEqual(localclm.stop(), [222])  # empty file does not abort the llama kill
+        localclm.DOWN_FLAG.unlink()
+        (localclm.RUN / "clm-serve.pid").write_text("garbage")
+        self.assertTrue(localclm.start())
+
 
 if __name__ == "__main__":
     unittest.main()

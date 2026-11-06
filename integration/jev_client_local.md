@@ -33,7 +33,7 @@ The change takes effect on the next hook call. The default is `"typesafe"`: the 
 
 ## Diff of `jev_client.py` against its backup
 
-`diff
+```diff
 diff --git a/C:/Users/molna/.claude/agent-hooks/jevlib/jev_client.py.bak-20261106-localclm b/C:/Users/molna/.claude/agent-hooks/jevlib/jev_client.py
 index 4fabf44..5198772 100644
 --- a/C:/Users/molna/.claude/agent-hooks/jevlib/jev_client.py.bak-20261106-localclm
@@ -116,4 +116,4 @@ index 4fabf44..5198772 100644
  
      payload = json.dumps({"state": state, "model": model, "questions": questions}).encode("utf-8")
      url = _base_url() + "/v1/systemone"
-`
+```

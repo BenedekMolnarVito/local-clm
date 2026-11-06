@@ -101,13 +101,20 @@ def _created(pid: int) -> float | None:
 def _alive(pid: int, image: str, since: float) -> bool:
     try:
         out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-                             capture_output=True, text=True).stdout
+                             capture_output=True, text=True, timeout=2).stdout  # hook path: never hang
         if image.lower() not in out.lower():
             return False
         c = _created(pid)
         return c is not None and since - 30 <= c <= since + 1  # rejects a reused PID
     except Exception:
         return False
+
+
+def _read_pid(pid_file: Path) -> int:
+    try:
+        return int(pid_file.read_text())
+    except ValueError:
+        return 0  # empty/corrupt file (crash mid-write); PID 0 never matches our image
 
 
 def _log(line: str):
@@ -122,6 +129,7 @@ def _take_lock() -> bool:
         except FileExistsError:
             if time.time() - LOCK.stat().st_mtime < LOCK_STALE_S:
                 return False  # another start is in progress
+            # shortcut: two starts racing on one stale lock can both spawn; upgrade to a named mutex if double spawns show up in start.log
             LOCK.unlink(missing_ok=True)
             continue
         os.write(fd, str(time.time()).encode())
@@ -160,7 +168,7 @@ def start(probe: bool = True) -> bool:
         for name, cmd, image in (("llama-server", llama_cmd(), "llama-server.exe"),
                                  ("clm-serve", clm_cmd(), "python.exe")):
             pid_file = RUN / f"{name}.pid"
-            if pid_file.exists() and _alive(int(pid_file.read_text()), image, pid_file.stat().st_mtime):
+            if pid_file.exists() and _alive(_read_pid(pid_file), image, pid_file.stat().st_mtime):
                 continue
             if _down_active():  # a `down` ran meanwhile
                 LOCK.unlink(missing_ok=True)
@@ -197,7 +205,7 @@ def stop() -> list[int]:
         pid_file = RUN / f"{name}.pid"
         if not pid_file.exists():
             continue
-        pid = int(pid_file.read_text())
+        pid = _read_pid(pid_file)
         if _alive(pid, image, pid_file.stat().st_mtime):
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
             killed.append(pid)
