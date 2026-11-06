@@ -178,6 +178,7 @@ class AliveTest(unittest.TestCase):
         self.assertTrue(localclm._alive(p.pid, Path(sys.executable).name, since))
         self.assertFalse(localclm._alive(p.pid, "llama-server.exe", since))
         self.assertFalse(localclm._alive(p.pid, Path(sys.executable).name, since + 100))  # reused PID
+        self.assertFalse(localclm._alive(10**20, "python.exe", since))  # corrupt pid file
         p.kill()
         p.wait()
         self.assertFalse(localclm._alive(p.pid, Path(sys.executable).name, since))

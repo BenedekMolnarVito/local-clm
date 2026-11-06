@@ -87,7 +87,10 @@ def _down_active() -> bool:
 def _alive(pid: int, image: str, since: float) -> bool:
     # Win32 calls, not tasklist: no subprocess on the hook path, so no hang and no timeout guess
     k = ctypes.windll.kernel32
-    h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    try:
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    except ctypes.ArgumentError:
+        return False  # pid too large for a DWORD (corrupt pid file)
     if not h:
         return False
     try:

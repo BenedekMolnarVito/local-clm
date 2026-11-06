@@ -74,7 +74,7 @@ index 4fabf44..e00edbe 100644
 +        spec.loader.exec_module(mod)
 +        _LOCALCLM = mod
 +        return mod
-+    except Exception:  # noqa: BLE001 â€” fail open to TypeSafe
++    except Exception:  # noqa: BLE001 — fail open to TypeSafe
 +        return None
 +
 +
@@ -115,7 +115,7 @@ index 4fabf44..e00edbe 100644
 +                return answers
 +            if lc.start(probe=False):
 +                log_event("local_clm_starting")
-+        except Exception as exc:  # noqa: BLE001 â€” fail open to TypeSafe
++        except Exception as exc:  # noqa: BLE001 — fail open to TypeSafe
 +            log_event("local_clm_error", detail=type(exc).__name__)
 +
      key = os.environ.get("TYPESAFE_API_KEY", "").strip()
