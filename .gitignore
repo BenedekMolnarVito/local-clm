@@ -1,0 +1,8 @@
+bin/
+models/
+.venv/
+logs/
+run/
+.agent/
+__pycache__/
+*.pyc
