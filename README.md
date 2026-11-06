@@ -33,6 +33,8 @@ Add `-WithReference` for the Q8 CPU reference model, or `-WithQ5` for the Q5_K_M
 Lazy start: set `"backend": "local"` in `C:/Users/molna/.claude/agent-hooks/jev-guard.json`. The first JEV call starts the service and goes to TypeSafe.
 After `down`, lazy start is blocked until the next reboot or the next `up`.
 
+WARNING: The local model is less accurate. bash-guard calls `safe_decide(..., local=False)`, so the destructive-command check always uses TypeSafe.
+
 ## Memory
 VRAM about 7 GB, RAM about 1.5 GB. Stop it with `python localclm.py down` to free both.
 

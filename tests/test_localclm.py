@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -165,6 +166,21 @@ class LocalClmTest(unittest.TestCase):
         localclm.DOWN_FLAG.unlink()
         (localclm.RUN / "clm-serve.pid").write_text("garbage")
         self.assertTrue(localclm.start())
+
+
+class AliveTest(unittest.TestCase):
+    """Real Win32 calls against a real child process (no mocks)."""
+
+    def test_alive_checks_image_and_start_time(self):
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(p.kill)
+        since = time.time()  # like the pid file mtime, written right after Popen
+        self.assertTrue(localclm._alive(p.pid, Path(sys.executable).name, since))
+        self.assertFalse(localclm._alive(p.pid, "llama-server.exe", since))
+        self.assertFalse(localclm._alive(p.pid, Path(sys.executable).name, since + 100))  # reused PID
+        p.kill()
+        p.wait()
+        self.assertFalse(localclm._alive(p.pid, Path(sys.executable).name, since))
 
 
 if __name__ == "__main__":

@@ -102,6 +102,25 @@ class JevLocalTest(unittest.TestCase):
         jev_client.call_jev({"s": 1}, Q, timeout=10)
         self.assertLessEqual(self.urlopen.call_args.kwargs["timeout"], 1.5)
 
+    def test_local_false_stays_on_typesafe(self):
+        lc = self.local(up=True)
+        self.assertEqual(jev_client.safe_decide({"s": 1}, Q, local=False), TS_ANS)
+        lc.is_up.assert_not_called()
+        self.assertEqual(self.urls(), [TS_URL])
+
+    def test_is_up_raises_falls_back(self):
+        lc = self.local(up=True)
+        lc.is_up.side_effect = OSError("boom")
+        self.assertEqual(jev_client.call_jev({"s": 1}, Q), TS_ANS)
+        self.assertEqual(self.urls(), [TS_URL])
+
+    def test_failed_load_not_retried(self):
+        self.backend("local", home=str(Path(ROOT) / "no-such-dir"))
+        with mock.patch("os.path.isfile", return_value=False) as isfile:
+            jev_client.call_jev({"s": 1}, Q)
+            jev_client.call_jev({"s": 1}, Q)
+        self.assertEqual(isfile.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

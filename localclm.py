@@ -84,30 +84,25 @@ def _down_active() -> bool:
     return False
 
 
-def _created(pid: int) -> float | None:
+def _alive(pid: int, image: str, since: float) -> bool:
+    # Win32 calls, not tasklist: no subprocess on the hook path, so no hang and no timeout guess
     k = ctypes.windll.kernel32
     h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
     if not h:
-        return None
+        return False
     try:
+        buf, n = ctypes.create_unicode_buffer(32768), ctypes.c_ulong(32768)
+        if not k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+            return False
         t = [ctypes.c_ulonglong() for _ in range(4)]
         if not k.GetProcessTimes(h, *[ctypes.byref(x) for x in t]):
-            return None
-        return t[0].value / 1e7 - 11644473600  # FILETIME (100 ns since 1601) -> Unix
-    finally:
-        k.CloseHandle(h)
-
-
-def _alive(pid: int, image: str, since: float) -> bool:
-    try:
-        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-                             capture_output=True, text=True, timeout=2).stdout  # hook path: never hang
-        if image.lower() not in out.lower():
             return False
-        c = _created(pid)
-        return c is not None and since - 30 <= c <= since + 1  # rejects a reused PID
+        created = t[0].value / 1e7 - 11644473600  # FILETIME (100 ns since 1601) -> Unix
+        return Path(buf.value).name.lower() == image.lower() and since - 30 <= created <= since + 1  # rejects a reused PID
     except Exception:
         return False
+    finally:
+        k.CloseHandle(h)
 
 
 def _read_pid(pid_file: Path) -> int:
