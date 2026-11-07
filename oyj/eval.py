@@ -65,6 +65,7 @@ def main():
     ap.add_argument("--self-n", type=int, default=50)
     ap.add_argument("--registry", default=str(ROOT / "models" / "oyj"))
     ap.add_argument("--test", default=str(label.DIR / "test.jsonl"))
+    ap.add_argument("--dev", default=str(label.DIR / "dev.jsonl"))
     ap.add_argument("--fit-T", action="store_true", help="serve uncalibrated, fit T on dev-ts, write calibration.json")
     a = ap.parse_args()
     cal = Path(a.registry) / "complexity" / "calibration.json"
@@ -100,12 +101,12 @@ def main():
                          "ts_dec": decision(m["ts_score"], m["ts_confidence"], cfg, config.tier_for_score),
                          "oyj_dec": decision(ans["score"], confidence(dict(enumerate(probs))), cfg, config.tier_for_score),
                          "ts_tier": config.tier_for_score(m["ts_score"], cfg), "oyj_tier": config.tier_for_score(ans["score"], cfg)})
-        dev = label.read(label.DIR / "dev.jsonl")
+        dev = label.read(a.dev)
         dev_ok, dev_probs = 0, []
         for r in dev:
             ans, _ = ask(r["state"], _COMPLEXITY_LEVELS)
             p = [ans["probabilities"][str(i)] for i in range(3)]
-            dev_ok += p.index(max(p)) == r["gold"]["complexity"]
+            dev_ok += p.index(max(p)) == (r.get("gold") or r["labels"])["complexity"]  # captured rows have labels only
             dev_probs.append((p, r["meta"]))  # meta keeps the TypeSafe score/confidence also for gold-changed rows
     finally:
         srv.terminate()
