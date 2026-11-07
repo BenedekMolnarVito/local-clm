@@ -38,7 +38,6 @@ def main():
         fail("backend not local", 2)
 
     localclm.stop()
-    localclm.DOWN_FLAG.unlink(missing_ok=True)  # a cold start after `down` needs it gone
     deadline = time.monotonic() + 15
     while localclm.is_up() and time.monotonic() < deadline:
         time.sleep(0.5)

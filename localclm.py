@@ -11,7 +11,6 @@ import subprocess
 import sys
 import time
 import urllib.request
-import winreg
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -22,7 +21,6 @@ CKPT = Path(os.environ.get("CLM_CKPT") or Path.home() / ".cache" / "clm" / "CLM_
 RUN = ROOT / "run"
 LOGS = ROOT / "logs"
 LOCK = RUN / "start.lock"
-DOWN_FLAG = RUN / "down.flag"
 EMB_PORT = 8090
 CLM_PORT = 8700
 BASE_URL = f"http://127.0.0.1:{CLM_PORT}"
@@ -83,31 +81,6 @@ def oyj_up(timeout: float = 0.3) -> bool:
 
 def child_env() -> dict:
     return {k: v for k, v in os.environ.items() if k not in ("TYPESAFE_API_KEY", "CLM_API_KEY")}
-
-
-def _boot_id() -> int:
-    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                        r"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters") as key:
-        return winreg.QueryValueEx(key, "BootId")[0]
-
-
-def _write_down_flag():
-    RUN.mkdir(parents=True, exist_ok=True)
-    tmp = DOWN_FLAG.with_suffix(".tmp")
-    tmp.write_text(str(_boot_id()))
-    os.replace(tmp, DOWN_FLAG)
-
-
-def _down_active() -> bool:
-    if not DOWN_FLAG.exists():
-        return False
-    try:
-        if int(DOWN_FLAG.read_text()) == _boot_id():
-            return True
-    except ValueError:
-        pass
-    DOWN_FLAG.unlink(missing_ok=True)  # flag from an earlier boot, or unreadable
-    return False
 
 
 def _alive(pid: int, image: str, since: float) -> bool:
@@ -176,8 +149,6 @@ def _spawn(cmd: list[str], log_path: Path, flags: int = FLAGS) -> tuple[int, boo
 def start(probe: bool = True) -> bool:
     locked = False
     try:
-        if _down_active():
-            return False
         if probe and is_up():
             return False
         RUN.mkdir(parents=True, exist_ok=True)
@@ -195,9 +166,6 @@ def start(probe: bool = True) -> bool:
             pid_file = RUN / f"{name}.pid"
             if pid_file.exists() and _alive(_read_pid(pid_file), image, pid_file.stat().st_mtime):
                 continue
-            if _down_active():  # a `down` ran meanwhile
-                LOCK.unlink(missing_ok=True)
-                return False
             pid, breakaway = _spawn(cmd, LOGS / f"{name}.log")
             pid_file.write_text(str(pid))
             _log(f"spawn {name} pid={pid} breakaway={breakaway}")
@@ -216,7 +184,7 @@ def start_oyj() -> bool:
     """Lazy start of the ownyourjev ONNX server; independent of the CLM files and health."""
     lock = RUN / "oyj.lock"
     try:
-        if _down_active() or not (OYJ_PY.exists() and OYJ_MODEL.exists()):
+        if not (OYJ_PY.exists() and OYJ_MODEL.exists()):
             return False
         RUN.mkdir(parents=True, exist_ok=True)
         LOGS.mkdir(parents=True, exist_ok=True)
@@ -294,7 +262,6 @@ def _kill(*procs) -> list[int]:
 
 
 def stop() -> list[int]:
-    _write_down_flag()  # first, so a concurrent start() stops before its next spawn
     killed = _kill(("clm-serve", "python.exe"), ("llama-server", "llama-server.exe"), ("oyj", "python.exe"))
     LOCK.unlink(missing_ok=True)
     return killed
@@ -306,7 +273,6 @@ def main(argv=None) -> int:
     ap.add_argument("--wait", type=float, metavar="SECONDS")
     a = ap.parse_args(argv)
     if a.cmd == "up":
-        DOWN_FLAG.unlink(missing_ok=True)
         start()
         start_oyj()
         if a.wait is not None:
