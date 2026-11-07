@@ -1,0 +1,13 @@
+{
+ "questions": {
+  "complexity": {
+   "type": "score",
+   "instructions": "How complex is this task for an AI coding agent?",
+   "criteria": [
+    "Trivial or mechanical: rename, typo, dependency bump, one-line edit.",
+    "Scoped implementation or edit with clear acceptance criteria.",
+    "Design, root-cause debugging, multi-file refactor, or ambiguous reasoning."
+   ]
+  }
+ }
+}
