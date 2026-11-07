@@ -129,6 +129,8 @@ def main():
     else:
         parts = split(read(DIR / "labeled.jsonl"))
         changes = {k: int(v) for k, v in json.loads(Path(a.changes).read_text()).items()} if a.changes else {}
+        # calibration target = TypeSafe, which the served model copies (owner 2026-11-07); gold stays in dev.jsonl
+        write(DIR / "dev-ts.jsonl", [{**r, "gold": dict(r["labels"])} for r in parts["dev"]])
         for name in ("seeds", "dev"):
             apply_gold(parts[name], changes)
         for name, rows in parts.items():

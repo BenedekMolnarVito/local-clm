@@ -16,6 +16,17 @@ TS_URL = "https://api.typesafe.ai/v1/systemone"
 Q = {"q": {"type": "noul", "instructions": "Is it?"}}
 LOCAL_ANS = {"q": {"type": "noul", "noul": 0.9}}
 TS_ANS = {"q": {"type": "noul", "noul": 0.1}}
+OYJ_URL = "http://127.0.0.1:8701/v1/systemone"
+OYJ_ANS = {"type": "score", "score": 0.2, "confidence": 0.0, "probabilities": {"0": 0.8, "1": 0.2, "2": 0.0}}
+
+
+def complexity_set(tasks, criteria=None):
+    from jevlib.decisions import _COMPLEXITY_LEVELS
+    return {"task_%d" % i: jev_client.score({"question": "How complex is this task for an AI coding agent?", "task": t},
+                                             criteria or _COMPLEXITY_LEVELS) for i, t in enumerate(tasks)}
+
+
+NOTE = {"note": "independent task complexity"}
 
 
 class FakeResp(io.BytesIO):
@@ -46,16 +57,64 @@ class JevLocalTest(unittest.TestCase):
         self.addCleanup(p.stop)
 
     def fake_urlopen(self, req, timeout=None):
+        if req.full_url == OYJ_URL:
+            if self.local_fails:
+                raise urllib.error.URLError("refused")
+            return FakeResp({"complexity": dict(OYJ_ANS)})
         if req.full_url == LOCAL_URL:
             if self.local_fails:
                 raise urllib.error.URLError("refused")
             return FakeResp(LOCAL_ANS)
         return FakeResp(TS_ANS)
 
-    def local(self, up, started=True):
-        jev_client._LOCALCLM = mock.Mock(BASE_URL="http://127.0.0.1:8700",
-                                         is_up=mock.Mock(return_value=up), start=mock.Mock(return_value=started))
+    def local(self, up, started=True, oyj=False):
+        jev_client._LOCALCLM = mock.Mock(BASE_URL="http://127.0.0.1:8700", OYJ_URL="http://127.0.0.1:8701",
+                                         is_up=mock.Mock(return_value=up), start=mock.Mock(return_value=started),
+                                         oyj_up=mock.Mock(return_value=oyj), start_oyj=mock.Mock(return_value=True))
         return jev_client._LOCALCLM
+
+    def no_sample(self, r=0.5):
+        p = mock.patch.object(jev_client.random, "random", return_value=r)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_complexity_set_goes_to_oyj(self):
+        self.local(up=True, oyj=True)
+        self.no_sample()
+        ans = jev_client.call_jev(NOTE, complexity_set(["Fix typo", "Design cache"]))
+        self.assertEqual(self.urls(), [OYJ_URL, OYJ_URL])
+        self.assertEqual(sorted(ans), ["task_0", "task_1"])
+        self.assertAlmostEqual(ans["task_0"]["confidence"], 0.8 - 0.1)  # top minus mean of others
+        body = json.loads(self.urlopen.call_args.args[0].data)
+        self.assertEqual(body["state"], {"task": "Design cache"})
+        self.assertEqual(body["questions"]["complexity"]["instructions"], "How complex is this task for an AI coding agent?")
+
+    def test_other_criteria_keep_clm_path(self):
+        self.local(up=True, oyj=True)
+        self.no_sample()
+        jev_client.call_jev(NOTE, complexity_set(["x"], criteria=["a", "b", "c"]))
+        self.assertEqual(self.urls(), [LOCAL_URL])
+
+    def test_oyj_error_goes_to_typesafe_not_clm(self):
+        self.local(up=True, oyj=True)
+        self.no_sample()
+        self.local_fails = True
+        jev_client.call_jev(NOTE, complexity_set(["x"]))
+        self.assertEqual(self.urls(), [OYJ_URL, TS_URL])
+
+    def test_oyj_down_starts_and_uses_typesafe(self):
+        lc = self.local(up=True, oyj=False)
+        self.no_sample()
+        jev_client.call_jev(NOTE, complexity_set(["x"]))
+        lc.start_oyj.assert_called_once_with()
+        self.assertEqual(self.urls(), [TS_URL])
+
+    def test_oyj_sample_goes_to_typesafe(self):
+        lc = self.local(up=True, oyj=True)
+        self.no_sample(0.05)
+        jev_client.call_jev(NOTE, complexity_set(["x"]))
+        lc.oyj_up.assert_not_called()
+        self.assertEqual(self.urls(), [TS_URL])
 
     def urls(self):
         return [c.args[0].full_url for c in self.urlopen.call_args_list]
@@ -188,6 +247,16 @@ class JevLocalTest(unittest.TestCase):
             path = self.capture_cfg(tmp)
             jev_client.call_jev({"s": 1}, Q)
             self.assertFalse(os.path.exists(path))
+
+    def test_capture_counts_complexity_tasks_for_update(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self.capture_cfg(tmp)
+            lc = self.local(up=False)  # backend typesafe: the launcher is still loaded for the update trigger
+            jev_client.call_jev({"s": 1}, Q)
+            lc.note_capture.assert_not_called()
+            jev_client.call_jev(NOTE, complexity_set(["a", "b", "c"]))
+            lc.note_capture.assert_called_once_with(3)
 
     def test_capture_over_cap_writes_nothing(self):
         import tempfile
