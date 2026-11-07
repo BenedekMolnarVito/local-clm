@@ -41,7 +41,8 @@ UPDATE_STALE_S = 6 * 3600
 
 BREAKAWAY = 0x01000000  # CREATE_BREAKAWAY_FROM_JOB
 IDLE = 0x00000040  # IDLE_PRIORITY_CLASS
-FLAGS = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | BREAKAWAY
+# CREATE_NO_WINDOW, not DETACHED_PROCESS: a venv python.exe respawns the base python, and without a console that child opens a visible one
+FLAGS = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP | BREAKAWAY
 
 
 def is_up(timeout: float = 0.3) -> bool:
