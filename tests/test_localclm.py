@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import localclm  # noqa: E402
 
 REAL_IS_UP = localclm.is_up
-REAL_DOWN_ACTIVE = localclm._down_active
 
 
 class FakeResp(io.BytesIO):
@@ -30,14 +29,11 @@ class LocalClmTest(unittest.TestCase):
         self.patch("RUN", run)
         self.patch("LOGS", self.tmp / "logs")
         self.patch("LOCK", run / "start.lock")
-        self.patch("DOWN_FLAG", run / "down.flag")
-        self.patch("_down_active", return_value=False)
         self.is_up = self.patch("is_up", return_value=False)
         self.alive = self.patch("_alive", return_value=False)
         self.popen = self.patch("subprocess.Popen", side_effect=[mock.Mock(pid=p) for p in (111, 222, 333)])
         self.run = self.patch("subprocess.run")
         self.patch("time.sleep")
-        self.patch("_boot_id", return_value=223)
 
     def patch(self, name, *new, **kw):
         p = mock.patch(f"localclm.{name}", *new, **kw)
@@ -134,18 +130,12 @@ class LocalClmTest(unittest.TestCase):
         self.assertFalse((localclm.RUN / "clm-serve.pid").exists())
         self.assertFalse((localclm.RUN / "llama-server.pid").exists())
         self.assertFalse(localclm.LOCK.exists())
-        self.assertTrue(localclm.DOWN_FLAG.exists())
 
-    def test_start_blocked_after_down(self):
-        self.patch("_down_active", REAL_DOWN_ACTIVE)
-        localclm.stop()
-        self.assertEqual(localclm.DOWN_FLAG.read_text(), "223")
-        self.assertFalse(localclm.start())
-        self.popen.assert_not_called()
-        localclm.DOWN_FLAG.write_text("222")  # earlier boot
+    def test_start_after_down(self):
         self.exe_ok()
-        self.assertTrue(localclm.start())
-        self.assertFalse(localclm.DOWN_FLAG.exists())
+        localclm.stop()
+        self.assertTrue(localclm.start())  # the next call after `down` starts the service again
+        self.assertEqual(self.popen.call_count, 2)
 
     def test_start_skips_live_component(self):
         self.exe_ok()
@@ -163,7 +153,6 @@ class LocalClmTest(unittest.TestCase):
         (localclm.RUN / "llama-server.pid").write_text("222")
         self.alive.side_effect = lambda pid, image, since: pid == 222
         self.assertEqual(localclm.stop(), [222])  # empty file does not abort the llama kill
-        localclm.DOWN_FLAG.unlink()
         (localclm.RUN / "clm-serve.pid").write_text("garbage")
         self.assertTrue(localclm.start())
 

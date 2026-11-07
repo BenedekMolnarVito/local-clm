@@ -24,7 +24,7 @@ A local, TypeSafe-compatible decision service ("CLM") runs on this PC. Claude ag
 2. The service starts in the background the first time an agent calls the JEV client after a reboot (lazy start).
 3. The call that triggers the start does not wait for it. That call falls back to TypeSafe (the current behaviour).
 4. When the service is up, JEV client calls go to `http://127.0.0.1:8700/v1/systemone`.
-5. The owner stops the service by hand: `python C:/Users/molna/VSCodeRepos/local-clm/localclm.py down`. After `down`, lazy start stays off until the next boot (any boot, including a Shutdown + power-on with Fast Startup) or `localclm.py up`.
+5. The owner stops the service by hand: `python C:/Users/molna/VSCodeRepos/local-clm/localclm.py down`. `down` only stops the service. The next JEV call starts it again in the background, the same as after a reboot.
 5a. The local path never makes a hook exceed its budget: worst case added latency is ≤ 1.8 s (0.3 s probe + 1.5 s local POST).
 6. No Docker. The encoder runs as a native Windows process on the GPU (Vulkan).
 
@@ -49,7 +49,6 @@ End state is proven by the smoke test in gate G5 (§7), with its output shown in
 | Embedder request | CLM sends `POST /v1/embeddings` with `{"model": "qwen3-8b", "input": [..], "encoding_format": "base64", "truncate_prompt_tokens": 2048}`, then L2-normalises the result itself. It expects last-token pooling. |
 | JEV client | `C:/Users/molna/.claude/agent-hooks/jevlib/jev_client.py`, function `call_jev(state, questions, *, timeout=None)`. It reads `TYPESAFE_BASE_URL` and `TYPESAFE_API_KEY`, and the config `jev.model` (`jev-latest`) and `jev.timeout_seconds` (5) from `C:/Users/molna/.claude/agent-hooks/jev-guard.json`. It returns `data["answers"]`. All 11 call sites (`agent_state_hooks.py` 5, `jevlib/decisions.py` 6) go through `call_jev` / `safe_decide`. Every real caller passes a **dict** state. `~/.claude` is NOT a git repository. |
 | Hook budgets | `bash-guard` and `done-check` call `safe_decide(..., timeout=3)` and run under 20 s hook timeouts (`settings.json`). A killed `bash-guard` skips its `ask` → a destructive command runs. Callers threshold raw probabilities tuned on TypeSafe: `RISKY_MIN=0.6` (bash-guard), `DONE_MIN=0.3`, `0.7`, `0.6` (`agent_state_hooks.py`). |
-| Boot marker | Fast Startup is on (`HiberbootEnabled=1`), so `GetTickCount64` does not reset on Shutdown. Use `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters` value `BootId` (REG_DWORD, `0xdf` on 2026-11-06); it changes on every boot. |
 | Windows connect | A connect to a closed `127.0.0.1` port does not fail fast on Windows. Each `is_up()` probe costs its full timeout while the service is down. |
 
 ## 3. Architecture
@@ -212,7 +211,7 @@ Verify (all must pass):
 
 ### Batch B2 — launcher (files: `localclm.py`, `tests/test_localclm.py`)
 
-`localclm.py` uses only the Python standard library. It is imported by `jev_client.py` (Python 3.13, hook context, must not print to stdout on import) and also runs as a CLI. Derive every path below `RUN`/`LOGS` inside the functions (tests patch `RUN`, `LOGS`, `LOCK`, `DOWN_FLAG`).
+`localclm.py` uses only the Python standard library. It is imported by `jev_client.py` (Python 3.13, hook context, must not print to stdout on import) and also runs as a CLI. Derive every path below `RUN`/`LOGS` inside the functions (tests patch `RUN`, `LOGS`, `LOCK`).
 
 **S2.1 Constants.** At module top:
 ```python
@@ -224,7 +223,6 @@ CKPT = Path(os.environ.get("CLM_CKPT") or Path.home() / ".cache" / "clm" / "CLM_
 RUN = ROOT / "run"
 LOGS = ROOT / "logs"
 LOCK = RUN / "start.lock"
-DOWN_FLAG = RUN / "down.flag"
 EMB_PORT = 8090
 CLM_PORT = 8700
 BASE_URL = f"http://127.0.0.1:{CLM_PORT}"
@@ -241,11 +239,8 @@ Verify: `python -c "import localclm as m; print(m.is_up())"` → `False` (servic
 - `child_env() -> dict`: a copy of `os.environ` without the keys `TYPESAFE_API_KEY` and `CLM_API_KEY`.
 Verify: `python -c "import localclm as m; c=m.llama_cmd(); assert '--pooling' in c and c[c.index('--host')+1]=='127.0.0.1'; d=m.clm_cmd(); assert d[d.index('--host')+1]=='127.0.0.1' and '--no-download' in d and d[1:3]==['-m','clm.server']; import os; os.environ['CLM_API_KEY']='x'; assert 'CLM_API_KEY' not in m.child_env(); print('ok')"` → `ok`.
 
-**S2.4 Down flag and boot id.**
-- `_boot_id() -> int`: read `BootId` with `winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters")` + `winreg.QueryValueEx(key, "BootId")[0]` (see §2 "Boot marker").
-- `_write_down_flag()`: write `str(_boot_id())` to `DOWN_FLAG.with_suffix(".tmp")`, then `os.replace` it onto `DOWN_FLAG` (atomic).
-- `_down_active() -> bool`: True when `DOWN_FLAG` exists AND `int(<its text>) == _boot_id()`. When the flag exists but holds another boot id or cannot be parsed, delete it and return False.
-Verify: covered by S2.8 tests 11–12.
+**S2.4 Stop has no flag.** `stop()` only stops the processes. The launcher has no down flag, no boot id and no `winreg` read. Do not add one.
+Verify: covered by S2.8 test 11.
 
 **S2.5 `_created(pid: int) -> float | None` and `_alive(pid: int, image: str, since: float) -> bool`.**
 - `_created`: return the process creation time as a Unix timestamp, or None. Code:
@@ -266,31 +261,29 @@ finally:
 Verify: `python -c "import os,time,localclm as m; p=os.getpid(); c=m._created(p); assert c and abs(time.time()-c)<60; assert m._alive(p,'python.exe',c); assert not m._alive(p,'python.exe',c+3600); assert not m._alive(p,'llama-server.exe',c); print('ok')"` → `ok`.
 
 **S2.6 `start(probe: bool = True) -> bool`.** It must return in less than 1 second. Behaviour, in order:
-1. If `_down_active()` → return False.
-2. If `probe` and `is_up()` → return False.
-3. Create `RUN` and `LOGS`. Take the lock: `os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)` and write the current time. If the lock exists and its mtime is newer than `LOCK_STALE_S` seconds → return False (another start is in progress). If it is older → delete it and try once more.
-4. If `LLAMA_EXE`, `PY_EXE`, `MODEL` or `CKPT` is missing → delete the lock, append one line to `LOGS/start.log` that names the missing path, and return False.
-5. For each component in order — (`llama-server`, `llama_cmd()`, image `llama-server.exe`), then (`clm-serve`, `clm_cmd()`, image `python.exe`):
+1. If `probe` and `is_up()` → return False.
+2. Create `RUN` and `LOGS`. Take the lock: `os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)` and write the current time. If the lock exists and its mtime is newer than `LOCK_STALE_S` seconds → return False (another start is in progress). If it is older → delete it and try once more.
+3. If `LLAMA_EXE`, `PY_EXE`, `MODEL` or `CKPT` is missing → delete the lock, append one line to `LOGS/start.log` that names the missing path, and return False.
+4. For each component in order — (`llama-server`, `llama_cmd()`, image `llama-server.exe`), then (`clm-serve`, `clm_cmd()`, image `python.exe`):
    - If `RUN/<name>.pid` exists and `_alive(<pid>, <image>, <pid file mtime>)` → skip this component (it already runs).
-   - Else, if `_down_active()` (a `down` ran meanwhile) → delete the lock and return False.
    - Else spawn it with `subprocess.Popen(cmd, stdin=DEVNULL, stdout=<log>, stderr=STDOUT, cwd=ROOT, env=child_env(), creationflags=FLAGS, close_fds=True)`, then close the log file handle in the parent. Log: `LOGS/<name>.log`, opened in append-binary mode. Write the PID to `RUN/<name>.pid` (plain integer text).
    - `FLAGS = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB` (constants from `subprocess`; `CREATE_BREAKAWAY_FROM_JOB` = `0x01000000`). If Popen raises `OSError` with the breakaway flag, retry once without `CREATE_BREAKAWAY_FROM_JOB`.
    - Append `spawn <name> pid=<pid> breakaway=<True|False>` to `LOGS/start.log`.
-6. Do NOT delete the lock. `wait_up()` or `stop()` deletes it; it also goes stale after `LOCK_STALE_S`.
-7. Return True.
+5. Do NOT delete the lock. `wait_up()` or `stop()` deletes it; it also goes stale after `LOCK_STALE_S`.
+6. Return True.
 `start()` never raises. On an unexpected exception, it deletes the lock only if this call created it, appends the exception type and message to `LOGS/start.log`, and returns False.
 Verify: covered by tests in S2.8.
 
 **S2.7 `wait_up`, `stop` and CLI.**
 - `wait_up(timeout: float = 180.0) -> bool`: poll `is_up()` every 1 second until it is True or the timeout passes. When True, delete `LOCK` if it exists. Return the result.
-- `stop() -> list[int]`: FIRST call `_write_down_flag()` (so that a concurrent `start()` stops before its next spawn). Then for each pid file in `RUN` (`clm-serve.pid` first, then `llama-server.pid`): read the PID; if `_alive(pid, image, <pid file mtime>)`, run `subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)` and add the PID to the result; delete the pid file. Delete `LOCK`. Return the list of killed PIDs.
+- `stop() -> list[int]`: for each pid file in `RUN` (`clm-serve.pid` first, then `llama-server.pid`): read the PID; if `_alive(pid, image, <pid file mtime>)`, run `subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)` and add the PID to the result; delete the pid file. Delete `LOCK`. Return the list of killed PIDs.
 - CLI `python localclm.py <up|down|status> [--wait SECONDS]` with `argparse`:
-  - `up`: delete `DOWN_FLAG` if it exists, call `start()`. With `--wait N` call `wait_up(N)`. Print `up` when `is_up()` is True at the end, else `starting` (no wait) or `failed` (wait timed out). Exit code 0 for `up` and `starting`, 1 for `failed`.
+  - `up`: call `start()`. With `--wait N` call `wait_up(N)`. Print `up` when `is_up()` is True at the end, else `starting` (no wait) or `failed` (wait timed out). Exit code 0 for `up` and `starting`, 1 for `failed`.
   - `down`: call `stop()`, print `stopped <pids>`, exit 0.
   - `status`: print `up` or `down`. Exit 0 for `up`, 3 for `down`.
 Verify: `python localclm.py status; "exit=$LASTEXITCODE"` → `down` then `exit=3`.
 
-**S2.8 Tests `tests/test_localclm.py`.** Use `unittest` and `unittest.mock` only. Put the repo root on `sys.path` so that `import localclm` works when run from the repo root. In `setUp`, patch `localclm.RUN`, `localclm.LOGS`, `localclm.LOCK`, `localclm.DOWN_FLAG` into a `tempfile.TemporaryDirectory()`, and patch `localclm._down_active` to return False (except tests 11–12). Also patch these defaults in `setUp` (a test overrides one when it needs another value; no test may reach a real process, port or sleep): `localclm.is_up` → False, `localclm._alive` → False, `localclm.subprocess.Popen` → a mock whose `.pid` is 111, then 222, then 333, `localclm.subprocess.run` → a mock, `localclm.time.sleep` → a no-op, `localclm._boot_id` → 223. Fixture "exe ok" = `LLAMA_EXE`, `PY_EXE`, `MODEL`, `CKPT` patched to existing empty temp files. Required tests (names are fixed):
+**S2.8 Tests `tests/test_localclm.py`.** Use `unittest` and `unittest.mock` only. Put the repo root on `sys.path` so that `import localclm` works when run from the repo root. In `setUp`, patch `localclm.RUN`, `localclm.LOGS`, `localclm.LOCK` into a `tempfile.TemporaryDirectory()`. Also patch these defaults in `setUp` (a test overrides one when it needs another value; no test may reach a real process, port or sleep): `localclm.is_up` → False, `localclm._alive` → False, `localclm.subprocess.Popen` → a mock whose `.pid` is 111, then 222, then 333, `localclm.subprocess.run` → a mock, `localclm.time.sleep` → a no-op. Fixture "exe ok" = `LLAMA_EXE`, `PY_EXE`, `MODEL`, `CKPT` patched to existing empty temp files. Required tests (names are fixed):
 1. `test_is_up_false_when_unreachable` — patch `urllib.request.urlopen` to raise `URLError` → False.
 2. `test_is_up_requires_embedder` — fake 200 response with `{"ok": true, "embedder": false}` → False; with `embedder: true` → True.
 3. `test_start_noop_when_up` — `is_up` patched True → `start()` is False and `Popen` is not called.
@@ -300,8 +293,8 @@ Verify: `python localclm.py status; "exit=$LASTEXITCODE"` → `down` then `exit=
 7. `test_start_missing_binary` — `LLAMA_EXE` points to a missing path → False, no `Popen`, `start.log` names the path, no lock left.
 8. `test_start_retries_without_breakaway` — "exe ok", the first `Popen` call raises `OSError`, later calls succeed → True; the retry's `creationflags & 0x01000000 == 0`; `start.log` contains `breakaway=False`.
 9. `test_wait_up_clears_lock` — `is_up` returns False, then True; `time.sleep` patched → `wait_up(5)` is True and the lock is deleted.
-10. `test_stop_skips_dead_or_foreign_pid` — pid files 111 (clm) and 222 (llama); `_alive` returns True for 222 only; `subprocess.run` mocked → `stop()` returns `[222]`, `taskkill` called once with `/T` and `/F`, both pid files and the lock deleted, `DOWN_FLAG` exists.
-11. `test_start_blocked_after_down` — `_down_active` NOT patched; `_boot_id` patched to 223; `stop()` → `DOWN_FLAG` contains `223` → `start()` False, `Popen` not called. Then `DOWN_FLAG` contains `222` (earlier boot) → `start()` True with "exe ok", and the flag is deleted.
+10. `test_stop_skips_dead_or_foreign_pid` — pid files 111 (clm) and 222 (llama); `_alive` returns True for 222 only; `subprocess.run` mocked → `stop()` returns `[222]`, `taskkill` called once with `/T` and `/F`, both pid files and the lock deleted.
+11. `test_start_after_down` — "exe ok", `is_up` False; `stop()` then `start()` → True, and `Popen` is called twice (llama, then clm). A `down` never blocks the next start.
 12. `test_start_skips_live_component` — "exe ok", `RUN/llama-server.pid` contains `222`, `_alive` True for 222 → True, `Popen` called once (clm only).
 Verify: `python -m unittest discover -s tests -v` → all 12 tests pass, `OK`.
 
@@ -391,13 +384,13 @@ Verify: `python -c "t=open('integration/jev_client_local.md',encoding='utf-8').r
 
 ### Batch B5 — docs and smoke script (files: `README.md`, `smoke.py`)
 
-**S5.1 `README.md`.** Keep the existing two lines. Add these sections, in order: `## What it is` (3 lines + the §3 diagram), `## Setup` (`pwsh setup.ps1`, disk ~7 GB, `-WithReference`/`-WithQ5`), `## Use` (`python localclm.py up --wait 180 | status | down`; lazy start through `jev-guard.json` `backend: local`; `down` blocks lazy start until the next reboot or `up`), `## Memory` (VRAM ~7 GB, RAM ~1.5 GB; stop with `down`), `## Not done` (no autostart, by design; no Docker, the AMD GPU cannot be reached from Docker on Windows).
+**S5.1 `README.md`.** Keep the existing two lines. Add these sections, in order: `## What it is` (3 lines + the §3 diagram), `## Setup` (`pwsh setup.ps1`, disk ~7 GB, `-WithReference`/`-WithQ5`), `## Use` (`python localclm.py up --wait 180 | status | down`; lazy start through `jev-guard.json` `backend: local`; `down` stops the service; the next JEV call starts it again), `## Memory` (VRAM ~7 GB, RAM ~1.5 GB; stop with `down`), `## Not done` (no autostart, by design; no Docker, the AMD GPU cannot be reached from Docker on Windows).
 Verify: `python -c "t=open('README.md',encoding='utf-8').read();assert all(h in t for h in ['## What it is','## Setup','## Use','## Memory','## Not done']);print('ok')"` → `ok`.
 
 **S5.2 `smoke.py`.** Standard library only. Run it with `python smoke.py`. It proves the lazy start end to end through the real JEV client:
 1. Import `localclm` (repo root) and `jevlib.jev_client` (from `C:/Users/molna/.claude/agent-hooks`).
 2. Check that `jev-guard.json` `jev.backend == "local"`. If not: print `FAIL backend not local` and exit 2.
-3. Call `localclm.stop()`, then delete `localclm.DOWN_FLAG` (a cold start after `down` needs it gone). Wait until `localclm.is_up()` is False (max 15 s). Print `cold: down`.
+3. Call `localclm.stop()`. Wait until `localclm.is_up()` is False (max 15 s). Print `cold: down`.
 4. Call `jev_client.safe_decide(STATE, QUESTIONS)` once (STATE a small dict, QUESTIONS one fixed noul question). Print `call1: <answers or UNAVAILABLE> (<ms> ms)`. If `<ms>` > 4500 → print `FAIL call1 too slow` and exit 1. Then check that `localclm.LOCK` exists or `RUN/llama-server.pid` exists → print `boot: triggered`, else print `FAIL boot not triggered` and exit 1.
 5. Call `localclm.wait_up(240)`. If False: print `FAIL not up after 240 s`, print the last 20 lines of `logs/llama-server.log` and `logs/clm-serve.log`, exit 1. Else print `up after <s> s`.
 6. Make TypeSafe unreachable for this process: `os.environ["TYPESAFE_BASE_URL"] = "http://127.0.0.1:9"`. Any answer now must come from the local service.
@@ -415,7 +408,7 @@ Verify: `python -c "import ast;ast.parse(open('smoke.py').read());print('ok')"` 
 | G2 | B2 | `python -m unittest discover -s tests -v` → 12 tests OK. |
 | G3 | B3 | For the chosen quant: `agree >= 29` of 31, `pdiff_mean <= 0.05`, `cos_mean >= 0.99`, `acc_b >= 26` of 31 and `typesafe_null <= 2`, `acc_b >= acc_typesafe - 3`, every `bg_risky_p_b >= 0.6`, `lat_b_p50_ms <= 1000`, `lat_b_p90_ms <= 1200` (the local POST timeout is 1.5 s). If Q6_K and Q5_K_M both fail: STOP and ask the owner (do not continue to B4). If only the bash-guard condition fails, ask the owner whether bash-guard may stay on TypeSafe. The chosen quant becomes the default `MODEL` in `localclm.py` (controller edit, only if it is not Q6_K). |
 | G4 | B4 | 19 tests OK. With `backend: typesafe`, one real `safe_decide` call returns answers (not UNAVAILABLE), and the S4.3 bash-guard Verify passes. |
-| G5 | B5 | (a) Controller sets `backend: local` and runs `python smoke.py` → `SMOKE PASS`. (b) Real hook path: `python localclm.py down`, delete `run/down.flag`, then from a NEW pwsh process run the bash-guard hook command from S4.3 Verify; within 240 s, `python localclm.py status` from another new process → `up`; `logs/start.log` shows the `breakaway=` value (if `False`, report it). (c) `python localclm.py down` → `status` gives `down`; a bash-guard hook call then does NOT start it (`status` still `down` after 30 s). (d) No autostart: `Get-ScheduledTask \| ? { $_.Actions.Execute -match 'llama\|clm' }`, `Get-Service \| ? { $_.Name -match 'llama\|clm' }`, `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`, `HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`, and `$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup` name neither `llama` nor `clm`. |
+| G5 | B5 | (a) Controller sets `backend: local` and runs `python smoke.py` → `SMOKE PASS`. (b) Real hook path: `python localclm.py down`, then from a NEW pwsh process run the bash-guard hook command from S4.3 Verify; within 240 s, `python localclm.py status` from another new process → `up`; `logs/start.log` shows the `breakaway=` value (if `False`, report it). (c) `python localclm.py down` → `status` gives `down`; a bash-guard hook call then starts it again: `status` gives `up` within 240 s (no flag blocks the start). (d) No autostart: `Get-ScheduledTask \| ? { $_.Actions.Execute -match 'llama\|clm' }`, `Get-Service \| ? { $_.Name -match 'llama\|clm' }`, `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`, `HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`, and `$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup` name neither `llama` nor `clm`. |
 | G6 | PR | Adversarial review of the branch → findings fixed. PR opened. Ponytail review of the PR → findings fixed, G2/G4 tests and the G5 smoke test re-run and pass. Squash merge into `develop`. |
 
 ## 8. Guardrails (global)
