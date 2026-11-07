@@ -56,6 +56,13 @@ class OyjTest(unittest.TestCase):
         c = {"uid": "3", "state": {"task": "Design a cache layer for the search service"}}
         self.assertEqual([r["uid"] for r in label.merge([a, b, c])], ["1", "3"])
 
+    def test_eval_accepts_every_flag_update_passes(self):
+        import subprocess
+        out = subprocess.run([sys.executable, str(Path(label.__file__).with_name("eval.py")), "--help"],
+                             capture_output=True, text=True).stdout
+        for flag in ("--registry", "--test", "--dev", "--fit-T", "--self-n", "--out"):
+            self.assertIn(flag, out)
+
 
 if __name__ == "__main__":
     unittest.main()

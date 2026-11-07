@@ -43,20 +43,44 @@ def decision(score, conf, cfg, tier_for_score):
     return tier_for_score(score, cfg) if conf >= 0.5 else None
 
 
+def scaled(probs, T):
+    """Temperature on probabilities (p_i ∝ p_i^(1/T), same as logits / T) -> (probs, score, confidence)."""
+    w = [max(p, 1e-12) ** (1 / T) for p in probs]
+    ps = [x / sum(w) for x in w]
+    return ps, sum(i * p for i, p in enumerate(ps)), confidence(dict(enumerate(ps)))
+
+
+def fit_decision_T(dev, cfg, tier_for_score):
+    """T on the grid 0.25..4.0 that maximizes hook-decision agreement with TypeSafe on dev; tie -> T closest to 1."""
+    def agree(T):
+        return sum(decision(*scaled(p, T)[1:], cfg, tier_for_score)
+                   == decision(m["ts_score"], m["ts_confidence"], cfg, tier_for_score) for p, m in dev)
+    grid = [round(0.25 + 0.05 * i, 2) for i in range(76)]
+    return max(grid, key=lambda T: (agree(T), -abs(T - 1))), agree
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "logs" / "p2-eval.json"))
     ap.add_argument("--self-n", type=int, default=50)
+    ap.add_argument("--registry", default=str(ROOT / "models" / "oyj"))
+    ap.add_argument("--test", default=str(label.DIR / "test.jsonl"))
+    ap.add_argument("--dev", default=str(label.DIR / "dev.jsonl"))
+    ap.add_argument("--fit-T", action="store_true", help="serve uncalibrated, fit T on dev-ts, write calibration.json")
     a = ap.parse_args()
+    cal = Path(a.registry) / "complexity" / "calibration.json"
+    if a.fit_T:
+        cal.unlink(missing_ok=True)
     os.environ["JEV_CAPTURE_OFF"] = "1"
     sys.path.insert(0, label.HOOKS)
     from jevlib import config, envload, jev_client
     from jevlib.decisions import _COMPLEXITY_LEVELS
-    envload.ensure()
+    if a.self_n:
+        envload.ensure()  # TypeSafe key only for the test-retest calls; update.py runs with --self-n 0 and no key
     cfg = config.load_config()
     env = {**localclm.child_env(), "PYTHONUTF8": "1"}
     srv = subprocess.Popen([str(ROOT / ".venv-oyj" / "Scripts" / "python.exe"), str(ROOT / "oyj" / "serve_onnx.py"),
-                            str(ROOT / "models" / "oyj"), "--port", str(PORT)], cwd=ROOT, env=env)
+                            a.registry, "--port", str(PORT)], cwd=ROOT, env=env)
     try:
         for _ in range(240):
             try:
@@ -64,7 +88,7 @@ def main():
                 break
             except Exception:
                 time.sleep(0.5)
-        test = label.read(label.DIR / "test.jsonl")
+        test = label.read(a.test)
         for r in test[:3]:
             ask(r["state"], _COMPLEXITY_LEVELS)  # warm-up
         rows = []
@@ -77,15 +101,22 @@ def main():
                          "ts_dec": decision(m["ts_score"], m["ts_confidence"], cfg, config.tier_for_score),
                          "oyj_dec": decision(ans["score"], confidence(dict(enumerate(probs))), cfg, config.tier_for_score),
                          "ts_tier": config.tier_for_score(m["ts_score"], cfg), "oyj_tier": config.tier_for_score(ans["score"], cfg)})
-        dev = label.read(label.DIR / "dev.jsonl")
-        dev_ok = 0
+        dev = label.read(a.dev)
+        dev_ok, dev_probs = 0, []
         for r in dev:
             ans, _ = ask(r["state"], _COMPLEXITY_LEVELS)
             p = [ans["probabilities"][str(i)] for i in range(3)]
-            dev_ok += p.index(max(p)) == r["gold"]["complexity"]
+            dev_ok += p.index(max(p)) == (r.get("gold") or r["labels"])["complexity"]  # captured rows have labels only
+            dev_probs.append((p, r["meta"]))  # meta keeps the TypeSafe score/confidence also for gold-changed rows
     finally:
         srv.terminate()
         srv.wait(10)
+    if a.fit_T:
+        T, agree = fit_decision_T(dev_probs, cfg, config.tier_for_score)
+        cal.write_text(json.dumps({"method": "temperature", "params": {"T": T}, "n_fit": len(dev_probs),
+                                   "source": "oyj/eval.py --fit-T: hook-decision agreement with TypeSafe on dev"}, indent=1))
+        print(f"fit T={T} dev decision agreement {agree(T)}/{len(dev_probs)} (T=1: {agree(1.0)})")
+        return
     self_rows = []
     for r in test[:a.self_n]:  # TypeSafe test-retest: the ceiling for agreement
         again = label.label_row(r, jev_client.call_jev, jev_client.score, _COMPLEXITY_LEVELS)["meta"]
