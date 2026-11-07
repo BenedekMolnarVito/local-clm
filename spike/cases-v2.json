@@ -1,0 +1,591 @@
+[
+ {
+  "id": "c01",
+  "state": {
+   "task": "Add a unit test for parse_date in utils/dates.py"
+  },
+  "questions": {
+   "q": {
+    "type": "noul",
+    "instructions": "The task asks for a change to the production database schema.",
+    "criteria": {
+     "true": "The task changes the schema of the production database, such as tables, columns or indexes.",
+     "false": "The task changes code, documentation or configuration that does not touch the production database schema."
+    }
+   }
+  },
+  "expect": false
+ },
+ {
+  "id": "c02",
+  "state": {
+   "claim": "All tests passed.",
+   "log": "tests/test_api.py::test_endpoint_0 PASSED\ntests/test_api.py::test_endpoint_1 PASSED\ntests/test_api.py::test_endpoint_2 PASSED\ntests/test_api.py::test_endpoint_3 PASSED\ntests/test_api.py::test_endpoint_4 PASSED\ntests/test_api.py::test_endpoint_5 PASSED\ntests/test_api.py::test_endpoint_6 PASSED\ntests/test_api.py::test_endpoint_7 PASSED\ntests/test_api.py::test_endpoint_8 PASSED\ntests/test_api.py::test_endpoint_9 PASSED\ntests/test_api.py::test_endpoint_10 PASSED\ntests/test_api.py::test_endpoint_11 PASSED\ntests/test_api.py::test_endpoint_12 PASSED\ntests/test_api.py::test_endpoint_13 PASSED\ntests/test_api.py::test_endpoint_14 PASSED\ntests/test_api.py::test_endpoint_15 PASSED\ntests/test_api.py::test_endpoint_16 PASSED\ntests/test_api.py::test_endpoint_17 PASSED\ntests/test_api.py::test_endpoint_18 PASSED\ntests/test_api.py::test_endpoint_19 PASSED\ntests/test_api.py::test_endpoint_20 PASSED\ntests/test_api.py::test_endpoint_21 PASSED\ntests/test_api.py::test_endpoint_22 PASSED\ntests/test_api.py::test_endpoint_23 PASSED\ntests/test_api.py::test_endpoint_24 PASSED\ntests/test_api.py::test_endpoint_25 PASSED\ntests/test_api.py::test_endpoint_26 PASSED\ntests/test_api.py::test_endpoint_27 PASSED\ntests/test_api.py::test_endpoint_28 PASSED\ntests/test_api.py::test_endpoint_29 PASSED\ntests/test_api.py::test_endpoint_30 PASSED\ntests/test_api.py::test_endpoint_31 PASSED\ntests/test_api.py::test_endpoint_32 PASSED\ntests/test_api.py::test_endpoint_33 PASSED\ntests/test_api.py::test_endpoint_34 PASSED\ntests/test_api.py::test_endpoint_35 PASSED\ntests/test_api.py::test_endpoint_36 PASSED\ntests/test_api.py::test_endpoint_37 PASSED\ntests/test_api.py::test_endpoint_38 PASSED\ntests/test_api.py::test_endpoint_39 PASSED\ntests/test_auth.py::test_login FAILED\nE   AssertionError: expected status 200, got 500\nE   KeyError: 'user_id' in auth/session.py line 88\n==== 1 failed, 40 passed in 12.31s ===="
+  },
+  "questions": {
+   "q": {
+    "type": "noul",
+    "instructions": "The log supports the claim.",
+    "criteria": {
+     "true": "The log contains the events, values and outcome that the claim describes.",
+     "false": "The log covers a different system, time range or result than the claim describes."
+    }
+   }
+  },
+  "expect": false
+ },
+ {
+  "id": "c03",
+  "state": {
+   "diff": "- timeout = 30\n+ timeout = 30  # seconds before the request is aborted"
+  },
+  "questions": {
+   "q": {
+    "type": "noul",
+    "instructions": "This diff only adds a comment and does not change program behaviour.",
+    "criteria": {
+     "true": "The diff changes only comments or documentation text, and the code that runs stays the same.",
+     "false": "The diff changes code that runs, such as logic, data, control flow or configuration values."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c04",
+  "state": {
+   "reply": "Done. I ran the test suite and it is green.",
+   "checks_run_this_turn": "pytest -q -> 48 passed in 2.1s"
+  },
+  "questions": {
+   "q": {
+    "type": "noul",
+    "instructions": "The reply either backs its claim of finished work with a check run this turn (test, script, grep, build) whose output shows success, or clearly says what is unverified.",
+    "criteria": {
+     "true": "The reply reports a check run this turn whose output shows success, which backs its claim of finished work.",
+     "false": "The reply claims finished work, but it shows no check run this turn and does not name what is unverified."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c05",
+  "state": {
+   "test": "test_upload_to_s3",
+   "history": "Passed 97 of the last 100 runs on the same commit. All 3 failures were timeouts while connecting to the external S3 mock container."
+  },
+  "questions": {
+   "q": {
+    "type": "noul",
+    "instructions": "This test failure is most likely flaky rather than a real regression in the code.",
+    "criteria": {
+     "true": "The test fails only sometimes, or its failure depends on timing, ordering, network or shared state rather than on the code change.",
+     "false": "The test fails the same way on every run, and the failure follows from a change in the code under test."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c06",
+  "state": {
+   "command": "git reset --hard HEAD~3",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "bg1": {
+    "type": "noul",
+    "instructions": "Running this command can destroy uncommitted work, files, git history or data that is not easy to rebuild (build output, caches and temp dirs are easy to rebuild).",
+    "criteria": {
+     "true": "The command deletes or overwrites source code, commits, history or data that cannot be rebuilt from other files.",
+     "false": "The command only removes build output, caches, dependencies or temporary files that the tools can rebuild."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c07",
+  "state": {
+   "command": "rm -rf src",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "bg2": {
+    "type": "noul",
+    "instructions": "Running this command can destroy uncommitted work, files, git history or data that is not easy to rebuild (build output, caches and temp dirs are easy to rebuild).",
+    "criteria": {
+     "true": "The command deletes or overwrites source code, commits, history or data that cannot be rebuilt from other files.",
+     "false": "The command only removes build output, caches, dependencies or temporary files that the tools can rebuild."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c08",
+  "state": {
+   "command": "git push --force origin main",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "bg3": {
+    "type": "noul",
+    "instructions": "Running this command can destroy uncommitted work, files, git history or data that is not easy to rebuild (build output, caches and temp dirs are easy to rebuild).",
+    "criteria": {
+     "true": "The command deletes or overwrites source code, commits, history or data that cannot be rebuilt from other files.",
+     "false": "The command only removes build output, caches, dependencies or temporary files that the tools can rebuild."
+    }
+   }
+  },
+  "expect": true
+ },
+ {
+  "id": "c09",
+  "state": {
+   "command": "rm -rf node_modules",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "bg4": {
+    "type": "noul",
+    "instructions": "Running this command can destroy uncommitted work, files, git history or data that is not easy to rebuild (build output, caches and temp dirs are easy to rebuild).",
+    "criteria": {
+     "true": "The command deletes or overwrites source code, commits, history or data that cannot be rebuilt from other files.",
+     "false": "The command only removes build output, caches, dependencies or temporary files that the tools can rebuild."
+    }
+   }
+  },
+  "expect": false
+ },
+ {
+  "id": "c10",
+  "state": {
+   "command": "rm -rf build",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "bg5": {
+    "type": "noul",
+    "instructions": "Running this command can destroy uncommitted work, files, git history or data that is not easy to rebuild (build output, caches and temp dirs are easy to rebuild).",
+    "criteria": {
+     "true": "The command deletes or overwrites source code, commits, history or data that cannot be rebuilt from other files.",
+     "false": "The command only removes build output, caches, dependencies or temporary files that the tools can rebuild."
+    }
+   }
+  },
+  "expect": false
+ },
+ {
+  "id": "c11",
+  "state": {
+   "ticket": "The login button is misaligned on mobile Safari."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which team should own this ticket?",
+    "criteria": {
+     "frontend": "The ticket asks for a change to how the web UI looks, renders or behaves in the browser.",
+     "backend": "The ticket asks for a change to APIs, business logic or database handling on the server.",
+     "infra": "The ticket asks for a change to servers, the CI pipeline or how the software is deployed.",
+     "docs": "The ticket asks for a change to user or developer documentation."
+    }
+   }
+  },
+  "expect": "frontend"
+ },
+ {
+  "id": "c12",
+  "state": {
+   "task": "Find every file that calls the function parse_config."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which tool fits this task best?",
+    "criteria": {
+     "grep": "The task needs to find a text pattern inside file contents.",
+     "edit": "The task changes the text of one file.",
+     "run_tests": "The task runs the project's test suite.",
+     "web_search": "The task needs information from the internet."
+    }
+   }
+  },
+  "expect": "grep"
+ },
+ {
+  "id": "c13",
+  "state": {
+   "bug": "The CLI flag --verbose is ignored; output stays quiet.",
+   "files": "cli/args.py: parses command-line flags\ndb/models.py: database tables\nweb/templates/index.html: home page"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which file most likely needs the fix?",
+    "criteria": {
+     "args": "The fix fits here when the bug is in command-line argument parsing, which is in cli/args.py.",
+     "models": "The fix fits here when the bug is in a database table or record definition, which is in db/models.py.",
+     "index": "The fix fits here when the bug is in the page markup or template, which is in web/templates/index.html."
+    }
+   }
+  },
+  "expect": "args"
+ },
+ {
+  "id": "c14",
+  "state": {
+   "build_log": "[  1/120] Compiling src/module_1.c -> build/module_1.o\n[  2/120] Compiling src/module_2.c -> build/module_2.o\n[  3/120] Compiling src/module_3.c -> build/module_3.o\n[  4/120] Compiling src/module_4.c -> build/module_4.o\n[  5/120] Compiling src/module_5.c -> build/module_5.o\n[  6/120] Compiling src/module_6.c -> build/module_6.o\n[  7/120] Compiling src/module_7.c -> build/module_7.o\n[  8/120] Compiling src/module_8.c -> build/module_8.o\n[  9/120] Compiling src/module_9.c -> build/module_9.o\n[ 10/120] Compiling src/module_10.c -> build/module_10.o\n[ 11/120] Compiling src/module_11.c -> build/module_11.o\n[ 12/120] Compiling src/module_12.c -> build/module_12.o\n[ 13/120] Compiling src/module_13.c -> build/module_13.o\n[ 14/120] Compiling src/module_14.c -> build/module_14.o\n[ 15/120] Compiling src/module_15.c -> build/module_15.o\n[ 16/120] Compiling src/module_16.c -> build/module_16.o\n[ 17/120] Compiling src/module_17.c -> build/module_17.o\n[ 18/120] Compiling src/module_18.c -> build/module_18.o\n[ 19/120] Compiling src/module_19.c -> build/module_19.o\n[ 20/120] Compiling src/module_20.c -> build/module_20.o\n[ 21/120] Compiling src/module_21.c -> build/module_21.o\n[ 22/120] Compiling src/module_22.c -> build/module_22.o\n[ 23/120] Compiling src/module_23.c -> build/module_23.o\n[ 24/120] Compiling src/module_24.c -> build/module_24.o\n[ 25/120] Compiling src/module_25.c -> build/module_25.o\n[ 26/120] Compiling src/module_26.c -> build/module_26.o\n[ 27/120] Compiling src/module_27.c -> build/module_27.o\n[ 28/120] Compiling src/module_28.c -> build/module_28.o\n[ 29/120] Compiling src/module_29.c -> build/module_29.o\n[ 30/120] Compiling src/module_30.c -> build/module_30.o\n[ 31/120] Compiling src/module_31.c -> build/module_31.o\n[ 32/120] Compiling src/module_32.c -> build/module_32.o\n[ 33/120] Compiling src/module_33.c -> build/module_33.o\n[ 34/120] Compiling src/module_34.c -> build/module_34.o\n[ 35/120] Compiling src/module_35.c -> build/module_35.o\n[ 36/120] Compiling src/module_36.c -> build/module_36.o\n[ 37/120] Compiling src/module_37.c -> build/module_37.o\n[ 38/120] Compiling src/module_38.c -> build/module_38.o\n[ 39/120] Compiling src/module_39.c -> build/module_39.o\n[ 40/120] Compiling src/module_40.c -> build/module_40.o\n[ 41/120] Compiling src/module_41.c -> build/module_41.o\n[ 42/120] Compiling src/module_42.c -> build/module_42.o\n[ 43/120] Compiling src/module_43.c -> build/module_43.o\n[ 44/120] Compiling src/module_44.c -> build/module_44.o\n[ 45/120] Compiling src/module_45.c -> build/module_45.o\n[120/120] Linking build/app.exe\nbuild/module_7.o: undefined reference to `zlib_inflate'\nbuild/module_9.o: undefined reference to `zlib_deflateInit'\ncollect2: error: ld returned 1 exit status\nmake: *** [Makefile:42: build/app.exe] Error 1"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "What kind of failure does this build log show?",
+    "criteria": {
+     "compile_error": "The log shows that the compiler rejected a source file.",
+     "link_error": "The log shows that the linker could not find a symbol or library it needs.",
+     "test_failure": "The log shows that a test assertion did not hold.",
+     "network": "The log shows that a download or network connection failed."
+    }
+   }
+  },
+  "expect": "link_error"
+ },
+ {
+  "id": "c15",
+  "state": {
+   "commit_subject": "Fix crash when the config file is empty"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which Conventional Commits type fits this commit?",
+    "criteria": {
+     "feat": "The commit adds a new feature that the product did not have before.",
+     "fix": "The commit corrects behavior that was broken or gave a wrong result.",
+     "docs": "The commit changes documentation only.",
+     "refactor": "The commit restructures code without changing its behavior."
+    }
+   }
+  },
+  "expect": "fix"
+ },
+ {
+  "id": "c16",
+  "state": {
+   "snippet": "def double(x):\n    return x * 2\n\nprint(double(21))"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which programming language is this snippet?",
+    "criteria": {
+     "python": "The snippet is Python code, written with Python syntax and libraries.",
+     "javascript": "The snippet is JavaScript code, written with JavaScript syntax and libraries.",
+     "rust": "The snippet is Rust code, written with Rust syntax and crates.",
+     "go": "The snippet is Go code, written with Go syntax and packages."
+    }
+   }
+  },
+  "expect": "python"
+ },
+ {
+  "id": "c17",
+  "state": {
+   "event": "The server returned HTTP 404 for GET /api/users/42."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "What does this response mean?",
+    "criteria": {
+     "not_found": "The response says that the requested resource does not exist.",
+     "auth": "The response says that the client did not send valid credentials.",
+     "server_error": "The response says that the server failed while it handled the request.",
+     "rate_limit": "The response says that the client sent too many requests in a short time."
+    }
+   }
+  },
+  "expect": "not_found"
+ },
+ {
+  "id": "c18",
+  "state": {
+   "incident": "The payment service is down for all users in production."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "What is the severity of this incident?",
+    "criteria": {
+     "low": "The incident is cosmetic and has no effect on users.",
+     "medium": "The incident degrades the service for some users.",
+     "critical": "The incident takes a core service down for everyone."
+    }
+   }
+  },
+  "expect": "critical"
+ },
+ {
+  "id": "c19",
+  "state": {
+   "goal": "Undo the last commit but keep its changes staged."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which git command does this?",
+    "criteria": {
+     "reset_soft": "The command moves HEAD back one commit and keeps those changes staged.",
+     "reset_hard": "The command moves HEAD back one commit and discards those changes from the working tree.",
+     "revert": "The command creates a new commit that undoes the last commit.",
+     "rebase": "The command rewrites the last few commits interactively."
+    }
+   }
+  },
+  "expect": "reset_soft"
+ },
+ {
+  "id": "c20",
+  "state": {
+   "failure": "test_sum FAILED: AssertionError: assert add(1, 2) == 4"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "What kind of test failure is this?",
+    "criteria": {
+     "assertion": "The failure shows that the code returned a wrong value that a check did not accept.",
+     "import": "The failure shows that a module could not be loaded.",
+     "timeout": "The failure shows that the test ran longer than its time limit.",
+     "syntax": "The failure shows that the code does not parse."
+    }
+   }
+  },
+  "expect": "assertion"
+ },
+ {
+  "id": "c21",
+  "state": {
+   "diff": "diff --git a/api/users.py b/api/users.py\n--- a/api/users.py\n+++ b/api/users.py\n@@ -10,8 +10,14 @@ def get_user(request):\n # helper line 0: unchanged context for readability\n # helper line 1: unchanged context for readability\n # helper line 2: unchanged context for readability\n # helper line 3: unchanged context for readability\n # helper line 4: unchanged context for readability\n # helper line 5: unchanged context for readability\n # helper line 6: unchanged context for readability\n # helper line 7: unchanged context for readability\n # helper line 8: unchanged context for readability\n # helper line 9: unchanged context for readability\n # helper line 10: unchanged context for readability\n # helper line 11: unchanged context for readability\n # helper line 12: unchanged context for readability\n # helper line 13: unchanged context for readability\n # helper line 14: unchanged context for readability\n # helper line 15: unchanged context for readability\n # helper line 16: unchanged context for readability\n # helper line 17: unchanged context for readability\n # helper line 18: unchanged context for readability\n # helper line 19: unchanged context for readability\n # helper line 20: unchanged context for readability\n # helper line 21: unchanged context for readability\n # helper line 22: unchanged context for readability\n # helper line 23: unchanged context for readability\n # helper line 24: unchanged context for readability\n # helper line 25: unchanged context for readability\n # helper line 26: unchanged context for readability\n # helper line 27: unchanged context for readability\n # helper line 28: unchanged context for readability\n # helper line 29: unchanged context for readability\n-    row = db.execute('SELECT * FROM users WHERE id = %s', (request.args['id'],))\n+    uid = request.args['id']\n+    row = db.execute(\"SELECT * FROM users WHERE id = '\" + uid + \"'\")\n+    log.info('fetched user ' + uid)"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "What should the reviewer do with this diff?",
+    "criteria": {
+     "approve": "The change is safe and correct, so it can be approved.",
+     "request_changes_security": "The change adds a security hole, such as an injection path or a missing authorization check.",
+     "request_changes_style": "The change is safe and correct but has style problems, such as naming or formatting, to fix."
+    }
+   }
+  },
+  "expect": "request_changes_security"
+ },
+ {
+  "id": "c22",
+  "state": {
+   "repo_files": "package.json\npackage-lock.json\nsrc/index.js\nREADME.md"
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which package manager does this repo use?",
+    "criteria": {
+     "npm": "The repo manages its dependencies with Node.js npm.",
+     "pip": "The repo manages its dependencies with Python pip.",
+     "cargo": "The repo manages its dependencies with Rust cargo.",
+     "maven": "The repo manages its dependencies with Java Maven."
+    }
+   }
+  },
+  "expect": "npm"
+ },
+ {
+  "id": "c23",
+  "state": {
+   "repo": "A web API with 40 endpoints. The tests/ folder is empty and CI runs no tests."
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How well is this code tested?",
+    "criteria": [
+     "The code has no tests, so its behavior is not checked automatically.",
+     "The code has a few tests that cover its main path but leave other paths unchecked.",
+     "The code has tests that cover its main paths, edge cases and failure cases."
+    ]
+   }
+  },
+  "expect": 0
+ },
+ {
+  "id": "c24",
+  "state": {
+   "bug": "A typo in an internal code comment: 'recieve' instead of 'receive'."
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How severe is this bug?",
+    "criteria": [
+     "The bug is a cosmetic or wording issue that no user notices in normal use.",
+     "The bug causes a small inconvenience, and a workaround exists for the few users it affects.",
+     "The bug breaks an important feature for many users and has no easy workaround.",
+     "The bug causes data loss, a security problem or a full outage for all users."
+    ]
+   }
+  },
+  "expect": 0
+ },
+ {
+  "id": "c25",
+  "state": {
+   "incident": "The production database was deleted and there is no backup."
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How severe is this incident?",
+    "criteria": [
+     "The incident has no visible effect on users and needs no immediate action.",
+     "The incident affects a few users in a small way, and a workaround exists.",
+     "The incident degrades an important service for many users.",
+     "The incident takes a core service down or exposes data to everyone."
+    ]
+   }
+  },
+  "expect": 3
+ },
+ {
+  "id": "c26",
+  "state": {
+   "ticket": "As a user I can reset my password. Acceptance criteria: 1) the reset email is sent within 1 minute; 2) the link expires after 24 hours; 3) the new password must meet the password policy; 4) an expired or used link shows the error 'Link expired'."
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How complete and testable are the acceptance criteria?",
+    "criteria": [
+     "The request gives no acceptance criteria at all, only a goal or a title.",
+     "The request states acceptance criteria in general terms that cannot be checked.",
+     "The request states some checkable criteria and leaves important cases unstated.",
+     "The request states every acceptance criterion as a check that can be run and passed or failed."
+    ]
+   }
+  },
+  "expect": 3
+ },
+ {
+  "id": "c27",
+  "state": {
+   "diff_stats": "1 file changed, 1 insertion(+), 1 deletion(-)"
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How large is this change?",
+    "criteria": [
+     "The change touches one line or a few lines in one file.",
+     "The change touches a single function or a few files.",
+     "The change touches several files and modules in one area of the code.",
+     "The change touches many modules or changes behavior across the whole system."
+    ]
+   }
+  },
+  "expect": 0
+ },
+ {
+  "id": "c28",
+  "state": {
+   "claim": "The tests pass.",
+   "output": "===== 5 passed, 0 failed in 0.4s ====="
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How well does the output support the claim?",
+    "criteria": [
+     "The output shows the opposite of what the claim says.",
+     "The output says nothing that confirms or refutes the claim.",
+     "The output shows the facts that the claim states."
+    ]
+   }
+  },
+  "expect": 2
+ },
+ {
+  "id": "c29",
+  "state": {
+   "task": "Rename one local variable inside a single function in one file."
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How complex is this task?",
+    "criteria": [
+     "The task is a small, obvious edit that needs no design.",
+     "The task needs a scoped change with a clear result and some checking.",
+     "The task needs design, root-cause analysis or changes across several parts of the code."
+    ]
+   }
+  },
+  "expect": 0
+ },
+ {
+  "id": "c30",
+  "state": {
+   "command": "ls -la",
+   "cwd": "C:/Users/molna/VSCodeRepos/shop-api"
+  },
+  "questions": {
+   "q": {
+    "type": "score",
+    "instructions": "How risky is running this command?",
+    "criteria": [
+     "The command only reads or lists files and changes nothing.",
+     "The command changes files or state in a way that is easy to undo.",
+     "The command deletes or overwrites data that cannot easily be recovered."
+    ]
+   }
+  },
+  "expect": 0
+ },
+ {
+  "id": "c31",
+  "state": {
+   "request": "Write a committed Playwright regression test suite for the login flow of our web app."
+  },
+  "questions": {
+   "q": {
+    "type": "choice",
+    "instructions": "Which skill best fits this request?",
+    "criteria": {
+     "brainstorming": "The request asks to explore intent and design before building a new feature.",
+     "systematic-debugging": "The request asks to find the root cause of a bug or a failing test.",
+     "test-driven-development": "The request asks to write a failing test first and then the code that makes it pass.",
+     "web-ui-regression-testing": "The request asks to turn validated browser checks into committed Playwright or Vitest regression tests.",
+     "jev-browser": "The request asks for an ad-hoc browser task, such as opening a page, clicking or checking the UI once.",
+     "github-pr": "The request asks to branch, commit, push, open, watch or merge a pull request.",
+     "ponytail-review": "The request asks for a review of a change for bloat and correctness.",
+     "kb": "The request asks to recall past decisions or preferences, or to save a new one.",
+     "orchestrate": "The request asks to run a plan of three or more tasks with subagents.",
+     "spike": "The request asks to test an idea first with a throwaway experiment that ends in a verdict.",
+     "pdf": "The request asks to read, create or edit a PDF file.",
+     "xlsx": "The request asks to read, create or edit an Excel spreadsheet.",
+     "docx": "The request asks to read, create or edit a Word document.",
+     "pptx": "The request asks to create a slide deck.",
+     "dataviz": "The request asks to design a chart, graph or dashboard.",
+     "claude-api": "The request asks for reference material on the Claude API or its SDK.",
+     "schedule": "The request asks to create a scheduled cloud agent that runs on a cron schedule.",
+     "update-config": "The request asks to change Claude Code settings.json or its hooks.",
+     "python-debugpy": "The request needs a real Python debugger, with breakpoints, post-mortem analysis or attaching to a running process.",
+     "security-review": "The request asks for a security review of the pending changes."
+    }
+   }
+  },
+  "expect": "web-ui-regression-testing"
+ }
+]
