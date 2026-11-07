@@ -6,3 +6,5 @@ run/
 .agent/
 __pycache__/
 *.pyc
+.venv-oyj/
+data/

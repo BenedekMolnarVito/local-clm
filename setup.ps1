@@ -1,5 +1,5 @@
 #Requires -Version 7
-param([switch]$WithReference, [switch]$WithQ5)
+param([switch]$WithReference, [switch]$WithQ5, [switch]$WithOyj)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 Set-Location $PSScriptRoot
@@ -52,5 +52,21 @@ Invoke-Native uv pip install --require-hashes -r requirements.txt --python .venv
 Invoke-Native uv pip install --no-deps contrastive-lm==0.1.0 --python .venv/Scripts/python.exe
 Get-Verified 'https://huggingface.co/Contrastive-LM/CLM-v0.1-8B/resolve/e939398d4556fcd9400c76fa8c5a513202f42b0a/CLM_v0.1-8B.pt' `
     "$env:USERPROFILE/.cache/clm/CLM_v0.1-8B.pt" 'b2b4a8c9c2d39263eff78a351eb909a342ce9b3bf21a3f07c1d1bf15f1c4eda5'
+
+# ownyourjev (CPU decision models), only with -WithOyj
+if ($WithOyj) {
+    if (-not (Test-Path '.venv-oyj/Scripts/python.exe')) { Invoke-Native uv venv .venv-oyj --python 3.13 }
+    Invoke-Native uv pip install --require-hashes -r oyj/requirements-oyj.txt --python .venv-oyj/Scripts/python.exe
+    Invoke-Native uv pip install --no-deps --no-build-isolation 'ownyourjev @ git+https://github.com/erfaneshrati/ownyourjev@845123fb834fed17dcd84531af6afe468b540e6c' --python .venv-oyj/Scripts/python.exe
+    $gte = 'https://huggingface.co/Alibaba-NLP/gte-modernbert-base/resolve/e7f32e3c00f91d699e8c43b53106206bcc72bb22'
+    foreach ($f in @(
+            @('config.json', '8ba54dc3d35d7194f5178a4194b649f146753e02dabd22bdca5c5cbac15069ed'),
+            @('model.safetensors', '3e85899d5728cb7de79781c0c3acfb91ccef9f875f1f7e0b3c9f3dd4b6a724ba'),
+            @('tokenizer.json', '6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30'),
+            @('tokenizer_config.json', '9654072f7c873161814043cf08cb5ed72f71d0b935abcd4e267935cb34352c21'),
+            @('special_tokens_map.json', 'ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049'))) {
+        Get-Verified "$gte/$($f[0])" "models/gte-modernbert-base/$($f[0])" $f[1]
+    }
+}
 
 Write-Host 'setup: ok'

@@ -121,6 +121,83 @@ class JevLocalTest(unittest.TestCase):
             jev_client.call_jev({"s": 1}, Q)
         self.assertEqual(isfile.call_count, 1)
 
+    def gate(self, **jev):
+        cfg = jev_client.config.load_config()
+        cfg["jev"].update(jev)
+
+    def test_gate_keeps_confident(self):
+        self.local(up=True)
+        self.gate(local_gate={"noul_band": [0.4, 0.6], "min_confidence": {}, "temperature": {}})
+        self.assertEqual(jev_client.call_jev({"s": 1}, Q), LOCAL_ANS)
+        self.assertEqual(self.urls(), [LOCAL_URL])
+
+    def test_gate_sends_flat_noul_to_typesafe(self):
+        self.local(up=True)
+        self.gate(local_gate={"noul_band": [0.4, 0.95], "min_confidence": {}, "temperature": {}})
+        self.assertEqual(jev_client.call_jev({"s": 1}, Q), TS_ANS)
+        self.assertEqual(self.urls(), [LOCAL_URL, TS_URL])
+        jev_client._LOCALCLM.start.assert_not_called()
+
+    def test_gate_temperature_rewrites_answers(self):
+        a = {"type": "noul", "noul": 0.9}
+        jev_client._calibrate(a, 2.0)
+        self.assertLess(a["noul"], 0.9)
+        s = {"type": "score", "score": 1.0, "confidence": 0.8, "probabilities": {"0": 0.1, "1": 0.8, "2": 0.1}}
+        jev_client._calibrate(s, 2.0)
+        self.assertAlmostEqual(sum(s["probabilities"].values()), 1.0)
+        self.assertAlmostEqual(s["score"], 1.0)
+        self.assertLess(s["confidence"], 0.8)
+        c = {"type": "choice", "choice": "b", "confidence": 0.5, "probabilities": {"a": 0.25, "b": 0.75}}
+        jev_client._calibrate(c, 0.5)
+        self.assertEqual(c["choice"], "b")
+        self.assertGreater(c["confidence"], 0.5)
+
+    def test_gate_low_choice_confidence(self):
+        self.assertTrue(jev_client._gated({"q": {"type": "choice", "confidence": 0.3}},
+                                          {"min_confidence": {"choice": 0.5}}))
+        self.assertFalse(jev_client._gated({"q": {"type": "choice", "confidence": 0.7}},
+                                           {"min_confidence": {"choice": 0.5}}))
+
+    def capture_cfg(self, tmp, enabled=True, max_mb=50):
+        path = os.path.join(tmp, "data", "capture.jsonl")
+        self.backend("typesafe")
+        self.gate(capture={"enabled": enabled, "path": path, "max_mb": max_mb})
+        return path
+
+    def test_capture_off_writes_nothing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.capture_cfg(tmp, enabled=False)
+            jev_client.call_jev({"s": 1}, Q)
+            self.assertFalse(os.path.exists(path))
+
+    def test_capture_on_writes_one_line(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.capture_cfg(tmp)
+            jev_client.call_jev({"s": 1}, Q)
+            with open(path, encoding="utf-8") as fh:
+                rows = [json.loads(x) for x in fh]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["set"], "q:noul")
+            self.assertEqual(rows[0]["answers"], TS_ANS)
+
+    def test_capture_env_off(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"JEV_CAPTURE_OFF": "1"}):
+            path = self.capture_cfg(tmp)
+            jev_client.call_jev({"s": 1}, Q)
+            self.assertFalse(os.path.exists(path))
+
+    def test_capture_over_cap_writes_nothing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.capture_cfg(tmp, max_mb=0)
+            os.makedirs(os.path.dirname(path))
+            open(path, "w").close()
+            jev_client.call_jev({"s": 1}, Q)
+            self.assertEqual(os.path.getsize(path), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
