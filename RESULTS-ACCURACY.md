@@ -14,7 +14,9 @@ Spec: `SPEC-ACCURACY.md`. Detailed numbers: `logs/` (local only), `oyj/complexit
 | Complexity question, test: decision agreement (hook rule) | — | ownyourjev 71 % (85 % without dev calibrator) |
 | Complexity question, CPU latency p90 | — | 216 ms |
 
-Final re-run with the final code (`logs/final-holdout-v2.json`, `logs/p2-eval.json`) gives the same numbers as the first runs.
+The hold-out v2 run was repeated with the final code (`logs/final-holdout-v2.json`) and gives the same numbers. `logs/p2-eval.json` is a single run; no measured code changed after it.
+
+Hand check limit: each of the 220 seed/dev briefs has one blind reviewer label plus the TypeSafe label. The controller read only the 56 disagreements (`oyj/complexity/CHECK.md`).
 
 ## Gate verdicts
 

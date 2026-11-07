@@ -1,12 +1,12 @@
 # Hand check of seeds + dev (220 lines)
 
-Method: two independent reviewers labeled all 220 briefs blind (no TypeSafe label shown). The controller compared with TypeSafe and decided every disagreement by reading the brief.
+Method: two reviewer agents each labeled one half (110 + 110) blind (no TypeSafe label shown). So every brief has ONE blind label and the TypeSafe label. The controller compared the two and decided every disagreement by reading the brief.
 
-- n checked: 220 (blind double label); agreement with TypeSafe: 164/220
+- n checked: 220 (one blind label each); agreement with TypeSafe: 164/220
 - n disagreements read by the controller: 56
 - n changed: 53 (kept TypeSafe on 3: p1-033 and p4-163 = new function plus test, scoped; p3-076 = design brief)
 - pattern: TypeSafe puts multi-file renames and mechanical replacements at level 1 (scoped); the level 0 text names renames, so gold = 0.
-- limit: the 164 agreed lines were not re-read by the controller; two labelers agreed on them.
+- deviation from SPEC-ACCURACY S3.3: the controller did not read the 164 agreed lines. For those, gold = the label on which the blind reviewer and TypeSafe agree.
 
 | uid | TypeSafe | gold | reason |
 |---|---|---|---|

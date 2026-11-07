@@ -216,10 +216,10 @@ index 4fabf44..e00edbe 100644
 +
 +def _capture(cfg, state, questions, answers) -> None:
 +    """Opt-in local copy of a TypeSafe call (jev.capture, default off). Never raises."""
-+    cap = cfg["jev"].get("capture") or {}
-+    if not cap.get("enabled") or os.environ.get("JEV_CAPTURE_OFF") == "1":
-+        return
 +    try:
++        cap = cfg["jev"].get("capture") or {}
++        if not cap.get("enabled") or os.environ.get("JEV_CAPTURE_OFF") == "1":
++            return
 +        path = cap["path"]
 +        if os.path.exists(path) and os.path.getsize(path) >= cap.get("max_mb", 50) * 1024 * 1024:
 +            return
